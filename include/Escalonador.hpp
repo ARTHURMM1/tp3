@@ -17,14 +17,44 @@ private:
     int pai(int i) { return (i - 1) / 2; }
     int filhoEsquerda(int i) { return 2 * i + 1; }
     int filhoDireita(int i) { return 2 * i + 2; }
-    void swap(Evento& a, Evento& b) {
-        Evento temp = b;
-        b = a;
-        a = temp;
+
+    void swap(int a, int b) {
+        Evento temp = heap[b];
+        heap[b] = heap[a];
+        heap[a] = temp;
     }
 
-    void heapifyUp(int i);    // Corrige a propriedade do heap "subindo"
-    void heapifyDown(int i);  // Corrige a propriedade do heap "descendo"
+    void heapifyUp(int i) {
+        while (i > 0 && heap[i].tempo < heap[pai(i)].tempo) {
+           swap(i, pai(i));
+           i = pai(i);
+        }
+    }
+
+    void heapifyDown(int i) {
+    int menor;
+    while (true) {
+        menor = i; 
+        int esq = filhoEsquerda(i);
+        int dir = filhoDireita(i);
+
+        if (esq < tamanho && heap[esq].tempo < heap[menor].tempo) {
+            menor = esq;
+        }
+
+        if (dir < tamanho && heap[dir].tempo < heap[menor].tempo) {
+            menor = dir;
+        }
+
+        if (menor == i) {
+            break;
+        }
+        
+        swap(i, menor);
+        i = menor;
+    }
+}
+     
     void redimensionar() {
         int novaCapacidade = capacidade * 2;
         Evento* aux = new Evento[novaCapacidade];
@@ -50,9 +80,19 @@ public:
         heapifyUp(tamanho);
         tamanho++;
     }
+
+
     Evento retiraProximoEvento() {
-        
+        if (tamanho == 0) {throw std::out_of_range ("Não há eventos.");}
+        Evento temp = heap[0];
+        heap[0] = heap[tamanho - 1];
+        tamanho--;
+        if (tamanho > 0) {heapifyDown(0);}
+       
+        return temp;
     }
+
+
     bool is_empty() const {return tamanho == 0;}
 };
 

@@ -6,11 +6,11 @@
 class VerticeArmazem {
     
     public: 
-    VerticeArmazem(const Armazem& a) : storage(a) {}
-    ~VerticeArmazem() {}
+        VerticeArmazem(const Armazem& a) : storage(a) {}
+        ~VerticeArmazem() {}
 
-    Armazem storage;
-    List<VerticeArmazem*> vizinhos;
+        Armazem storage;
+        List<VerticeArmazem*> vizinhos;
 
 };
 
