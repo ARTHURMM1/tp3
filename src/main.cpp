@@ -6,10 +6,6 @@
 
 int main () {
 
-
-
-    //inicializar o grafo
-
     int numero_de_armazens;
 
     Log logistica();

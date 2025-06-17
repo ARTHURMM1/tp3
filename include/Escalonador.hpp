@@ -75,7 +75,7 @@ public:
     }
 
     void insereEvento(const Evento& novoEvento) {
-        if (capacidade == tamanho) {redimensionar();}
+        if (is_full()) {redimensionar();}
         heap[tamanho] = novoEvento;
         heapifyUp(tamanho);
         tamanho++;
@@ -83,7 +83,7 @@ public:
 
 
     Evento retiraProximoEvento() {
-        if (tamanho == 0) {throw std::out_of_range ("Não há eventos.");}
+        if (is_empty()) {throw std::out_of_range ("Não há eventos.");}
         Evento temp = heap[0];
         heap[0] = heap[tamanho - 1];
         tamanho--;
@@ -94,6 +94,7 @@ public:
 
 
     bool is_empty() const {return tamanho == 0;}
+    bool is_full() const {return tamanho == capacidade;}
 };
 
 #endif
