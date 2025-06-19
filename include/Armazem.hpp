@@ -9,12 +9,12 @@
 class Armazem {
     private:
     int id;
-    Stack<Pacote> mainstack;
-    Stack<Pacote>* substacks;
+    Stack<Pacote*> mainstack;
+   
 
     public:
-    Armazem (int id) : mainstack(MAX_SIZE), substacks(new Stack<Pacote>[MAX_SIZE]) {}
-    ~Armazem() {delete[] substacks;}
+    Armazem (int id) : id(id) {}
+    ~Armazem() {}
 
     int get_id() const {return id;}
 };

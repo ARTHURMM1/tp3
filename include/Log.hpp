@@ -23,6 +23,9 @@ class Log {
             destino->vizinhos.push_back(origem);
         }
 
+        Armazem* path(Pacote pct, Armazem org, Armazem dst) {
+
+        }
 };
 
 #endif
