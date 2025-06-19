@@ -1,19 +1,17 @@
 #ifndef LIST_HPP
 #define LIST_HPP
 
+#include <stdexcept> // Para std::runtime_error
+
 template <typename T>
 class List {
-private:
+    public:
     struct Node {
         T data;
         Node* next;
         Node(const T& value) : data(value), next(nullptr) {}
     };
 
-    Node* head;
-    int count;
-
-public:
     List() : head(nullptr), count(0) {}
     ~List() {
         while (head) {
@@ -75,17 +73,29 @@ public:
         }
         delete curr->next;
         curr->next = nullptr;
-        --count;
+        --count;    
         return true;
     }
 
-    const T& front() const {
+    T& front() {
+        if (is_empty()) throw std::runtime_error("Lista vazia");
         return head->data;
     }
 
-    Node* head() {
+    const T& front() const {
+        if (is_empty()) throw std::runtime_error("Lista vazia");
+        return head->data;
+    }
+
+    Node* get_head() { // Correção: renomear para evitar conflito
         return head;
     }
+private:
+    
+    Node* head;
+    int count;
+
+
 };
 
 #endif
