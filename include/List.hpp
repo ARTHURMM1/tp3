@@ -5,6 +5,9 @@
 
 template <typename T>
 class List {
+
+   
+
     public:
     struct Node {
         T data;
@@ -87,10 +90,10 @@ class List {
         return head->data;
     }
 
-    Node* get_head() { // Correção: renomear para evitar conflito
+    Node* get_head() { 
         return head;
     }
-private:
+ private:
     
     Node* head;
     int count;

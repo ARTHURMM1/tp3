@@ -38,31 +38,60 @@ public:
     }
 
     // Método para impressão de eventos
-    void imprimirEvento(const std::string& tipoMsg) const {
+    
+    void imprimirEvento(const std::string& tipoMsg, int origem = -1, int destino = -1, int secao = -1) const {
         std::cout << std::setfill('0') << std::setw(7) << (int)tempo;
-        std::cout << " pacote " << std::setfill('0') << std::setw(3) << pacote->id;
-        
+        std::cout << " pacote " << std::setfill('0') << std::setw(3) << (pacote ? pacote->id : -1);
+
         if (tipoMsg == "armazenado") {
             std::cout << " armazenado em " << std::setfill('0') << std::setw(3) 
-                     << idArmazemOrigem << " na secao " << std::setfill('0') 
-                     << std::setw(3) << idArmazemDestino;
+                      << origem << " na secao " << std::setfill('0') 
+                      << std::setw(3) << secao;
         } 
         else if (tipoMsg == "removido") {
             std::cout << " removido de " << std::setfill('0') << std::setw(3) 
-                     << idArmazemOrigem << " na secao " << std::setfill('0') 
-                     << std::setw(3) << idArmazemDestino;
+                      << origem << " na secao " << std::setfill('0') 
+                      << std::setw(3) << secao;
         }
         else if (tipoMsg == "transito") {
             std::cout << " em transito de " << std::setfill('0') << std::setw(3) 
-                     << idArmazemOrigem << " para " << std::setfill('0') 
-                     << std::setw(3) << idArmazemDestino;
+                      << origem << " para " << std::setfill('0') 
+                      << std::setw(3) << destino;
         }
         else if (tipoMsg == "entregue") {
             std::cout << " entregue em " << std::setfill('0') << std::setw(3) 
-                     << idArmazemOrigem;
+                      << origem;
         }
         std::cout << std::endl;
     }
 };
+
+// Exemplo como função global (pode ser adaptada para método da classe Evento)
+void imprimirEvento(int tempo, int idPacote, const std::string& tipo, 
+                    int origem, int destino = -1, int secao = -1) {
+    std::cout << std::setfill('0') << std::setw(7) << tempo;
+    std::cout << " pacote " << std::setfill('0') << std::setw(3) << idPacote;
+
+    if (tipo == "armazenado") {
+        std::cout << " armazenado em " << std::setfill('0') << std::setw(3) 
+                  << origem << " na secao " << std::setfill('0') 
+                  << std::setw(3) << secao;
+    } 
+    else if (tipo == "removido") {
+        std::cout << " removido de " << std::setfill('0') << std::setw(3) 
+                  << origem << " na secao " << std::setfill('0') 
+                  << std::setw(3) << secao;
+    }
+    else if (tipo == "transito") {
+        std::cout << " em transito de " << std::setfill('0') << std::setw(3) 
+                  << origem << " para " << std::setfill('0') 
+                  << std::setw(3) << destino;
+    }
+    else if (tipo == "entregue") {
+        std::cout << " entregue em " << std::setfill('0') << std::setw(3) 
+                  << origem;
+    }
+    std::cout << std::endl;
+}
 
 #endif

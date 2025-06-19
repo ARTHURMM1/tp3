@@ -4,22 +4,35 @@
 #include "Escalonador.hpp"
 #include "Pacote.hpp"
 
+// Função auxiliar para encontrar o índice da seção (destino) em um armazém
+int encontrarIndiceSecao(Armazem* armazem, int idDestino) {
+    int idx = 0;
+    List<PilhaPorDestino>::Node* curr = armazem->secoes.get_head();
+    while (curr) {
+        if (curr->data.idDestino == idDestino) return idx;
+        curr = curr->next;
+        idx++;
+    }
+    return -1; // Não encontrado
+}
+
 int main() {
-    int K, T, C, N;
-    std::cin >> K >> T >> C >> N;
-    
+    // Leitura dos parâmetros do sistema logístico
+    int capacidadeTransporte, latenciaTransporte, intervaloTransportes, custoRemocao, numeroArmazens;
+    std::cin >> capacidadeTransporte >> latenciaTransporte >> intervaloTransportes >> custoRemocao >> numeroArmazens;
+
     Log logistica;
     Escalonador escalonador;
 
-    // Lê matriz de adjacência e cria armazéns
-    for (int i = 0; i < N; i++) {
+    // Criação dos armazéns
+    for (int i = 0; i < numeroArmazens; i++) {
         Armazem* armazem = new Armazem(i);
         logistica.add_storage(armazem);
     }
 
-    // Lê conexões da matriz
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) {
+    // Leitura da matriz de adjacência e criação das rotas
+    for (int i = 0; i < numeroArmazens; i++) {
+        for (int j = 0; j < numeroArmazens; j++) {
             int conexao;
             std::cin >> conexao;
             if (conexao == 1) {
@@ -28,54 +41,48 @@ int main() {
         }
     }
 
-    // Lê pacotes
-    int P;
-    std::cin >> P;
-    
-    for (int i = 0; i < P; i++) {
-        int tempo, id, origem, destino;
+    // Leitura do número de pacotes
+    int numeroPacotes;
+    std::cin >> numeroPacotes;
+
+    // Leitura dos pacotes e agendamento dos eventos de chegada
+    for (int i = 0; i < numeroPacotes; i++) {
+        int tempoChegada, idPacote, origem, destino;
         std::string dummy;
-        std::cin >> tempo >> dummy >> id >> dummy >> origem >> dummy >> destino;
-        
-        Pacote* pacote = new Pacote(id, origem, destino, tempo);
+        std::cin >> tempoChegada >> dummy >> idPacote >> dummy >> origem >> dummy >> destino;
+
+        Pacote* pacote = new Pacote(idPacote, origem, destino, tempoChegada);
         pacote->estado = CHEGADA_ESCALONADA;
-        
-        // Calcula rota do pacote
         pacote->rota = logistica.calcularRota(origem, destino);
-        
-        // Agenda chegada do pacote
-        Evento evento(tempo, CHEGADA_PACOTE, pacote);
-        evento.idArmazemOrigem = origem;
-        evento.idArmazemDestino = destino;
-        escalonador.insereEvento(evento);
+
+        Evento eventoChegada(tempoChegada, CHEGADA_PACOTE, pacote);
+        eventoChegada.idArmazemOrigem = origem;
+        eventoChegada.idArmazemDestino = destino;
+        escalonador.insereEvento(eventoChegada);
     }
 
-    // Processa eventos
+    // Processamento dos eventos
     while (!escalonador.is_empty()) {
         Evento evento = escalonador.retiraProximoEvento();
-        
+
         if (evento.tipo == CHEGADA_PACOTE) {
             Pacote* pacote = evento.pacote;
             Armazem* armazem = logistica.encontrarArmazem(pacote->idArmazemOrigem);
-            
-            // Define próximo destino
+
             int proximoDestino = pacote->getProximoDestino();
             if (proximoDestino == -1) proximoDestino = pacote->idArmazemDestino;
-            
-            // Armazena pacote
+
             armazem->armazenarPacote(pacote, proximoDestino);
-            
-            // Imprime evento de armazenamento
+            int indiceSecao = encontrarIndiceSecao(armazem, proximoDestino);
+
             evento.idArmazemDestino = proximoDestino;
-            evento.imprimirEvento("armazenado");
-            
-            // Agenda próximo transporte
+            evento.imprimirEvento("armazenado", pacote->idArmazemOrigem, -1, indiceSecao);
+
+            // Agenda transporte se necessário
             double tempoTransporte = evento.tempo;
-            while ((int)tempoTransporte % K != 0) tempoTransporte++;
-            
-            if (tempoTransporte <= T) {
-                Evento eventoTransporte(tempoTransporte, TRANSPORTE_PACOTES, 
-                                      pacote->idArmazemOrigem, proximoDestino);
+            while ((int)tempoTransporte % intervaloTransportes != 0) tempoTransporte++;
+            if (tempoTransporte <= 1000000) { // Ajuste conforme limite de tempo do seu simulador
+                Evento eventoTransporte(tempoTransporte, TRANSPORTE_PACOTES, pacote->idArmazemOrigem, proximoDestino);
                 eventoTransporte.pacote = pacote;
                 escalonador.insereEvento(eventoTransporte);
             }
@@ -83,24 +90,22 @@ int main() {
         else if (evento.tipo == TRANSPORTE_PACOTES) {
             Armazem* origem = logistica.encontrarArmazem(evento.idArmazemOrigem);
             Pacote* pacote = origem->retirarPacote(evento.idArmazemDestino);
-            
+
             if (pacote) {
+                int indiceSecao = encontrarIndiceSecao(origem, evento.idArmazemDestino);
                 evento.pacote = pacote;
-                evento.imprimirEvento("removido");
-                evento.imprimirEvento("transito");
-                
+                evento.imprimirEvento("removido", evento.idArmazemOrigem, -1, indiceSecao);
+                evento.imprimirEvento("transito", evento.idArmazemOrigem, evento.idArmazemDestino);
+
                 pacote->avancarRota();
-                
+
                 if (pacote->rota.is_empty() && evento.idArmazemDestino == pacote->idArmazemDestino) {
-                    Evento eventoEntrega(evento.tempo + 20, TRANSPORTE_PACOTES, 
-                                       evento.idArmazemDestino, evento.idArmazemDestino);
-                    eventoEntrega.pacote = pacote;
-                    eventoEntrega.imprimirEvento("entregue");
+                    evento.imprimirEvento("entregue", evento.idArmazemDestino);
                     delete pacote;
-                }
-                else {
+                    continue; // Não agende mais nada para esse pacote!
+                } else {
                     pacote->idArmazemOrigem = evento.idArmazemDestino;
-                    Evento eventoChegada(evento.tempo + 20, CHEGADA_PACOTE, pacote);
+                    Evento eventoChegada(evento.tempo + latenciaTransporte, CHEGADA_PACOTE, pacote);
                     eventoChegada.idArmazemOrigem = evento.idArmazemDestino;
                     eventoChegada.idArmazemDestino = pacote->getProximoDestino();
                     escalonador.insereEvento(eventoChegada);

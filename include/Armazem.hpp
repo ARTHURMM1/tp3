@@ -18,11 +18,11 @@ struct PilhaPorDestino {
 };
 
 class Armazem {
-private:
-    int id;
-    List<PilhaPorDestino> secoes; // Uma lista de pilhas, uma para cada destino
+    
 
 public:
+    int id;
+    List<PilhaPorDestino> secoes; // Uma lista de pilhas, uma para cada destino
     Armazem(int id = -1) : id(id) {}
     ~Armazem() {}
 
