@@ -48,7 +48,7 @@ public:
 
     // Retira um pacote da seção especificada
     Pacote* retirarPacote(int idProximoDestino) {
-        List<PilhaPorDestino>::Node* curr = secoes.get_head(); // Correção: head() e tipo Node explícito
+        List<PilhaPorDestino>::Node* curr = secoes.get_head(); 
         while (curr != nullptr) {
             if (curr->data.idDestino == idProximoDestino) {
                 if (!curr->data.pilha.is_empty()) {

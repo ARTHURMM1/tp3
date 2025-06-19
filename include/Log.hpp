@@ -11,16 +11,7 @@ class Log {
 private:
     List<VerticeArmazem*> armazens;
 
-    VerticeArmazem* encontrarVertice(int id) {
-        List<VerticeArmazem*>::Node* current = armazens.get_head(); // Correção
-        while (current) {
-            if (current->data->storage.getId() == id) {
-                return current->data;
-            }
-            current = current->next;
-        }
-        return nullptr;
-    }
+    
 
 public:
     Log() {}
@@ -30,6 +21,17 @@ public:
             delete armazens.front();
             armazens.pop_front();
         }
+    }
+    
+    VerticeArmazem* encontrarVertice(int id) {
+        List<VerticeArmazem*>::Node* current = armazens.get_head(); // Correção
+        while (current) {
+            if (current->data->storage.getId() == id) {
+                return current->data;
+            }
+            current = current->next;
+        }
+        return nullptr;
     }
 
     void add_storage(Armazem* novo) {

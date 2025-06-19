@@ -2,6 +2,7 @@
 #define STATS_HPP 
 
 #include "List.hpp"
+#include "Armazem.hpp"
 
 class Stats {
     private:
