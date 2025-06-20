@@ -17,7 +17,7 @@ SOURCES := $(wildcard $(SRCDIR)/*.cpp)
 OBJECTS := $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.o, $(SOURCES))
 
 # Nome do executável final
-TARGET := $(BINDIR)/tp3.out
+TARGET := $(BINDIR)/tp2.out
 
 # Regra principal: compila tudo
 all: $(TARGET)

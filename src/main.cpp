@@ -1,18 +1,22 @@
 #include <iostream>
+#include <iomanip>
+#include <string>
 #include "Log.hpp"
 #include "Escalonador.hpp"
 #include "Pacote.hpp"
+#include "Armazem.hpp"
 
+// Função utilitária para encontrar o índice da seção de destino em um armazém
 int encontrarIndiceSecao(Armazem* armazem, int idDestino) {
     if (!armazem) return -1;
     int idx = 0;
-    List<PilhaPorDestino>::Node* curr = armazem->secoes.get_head();
+    List<PilhaPorDestino*>::Node* curr = armazem->secoes.get_head();
     while (curr) {
-        if (curr->data.idDestino == idDestino) return idx;
+        if (curr->data->idDestino == idDestino) return idx;
         curr = curr->next;
         idx++;
     }
-    return -1; 
+    return -1;
 }
 
 int main() {
@@ -23,11 +27,13 @@ int main() {
     logistica.setNumArmazens(numeroArmazens);
     Escalonador escalonador;
 
+    // Cria armazéns
     for (int i = 0; i < numeroArmazens; i++) {
         Armazem* armazem = new Armazem(i);
         logistica.add_storage(armazem);
     }
 
+    // Lê matriz de adjacência e cria conexões
     for (int i = 0; i < numeroArmazens; i++) {
         for (int j = 0; j < numeroArmazens; j++) {
             int conexao;
@@ -38,6 +44,7 @@ int main() {
         }
     }
 
+    // Lê pacotes e agenda eventos de chegada
     int numeroPacotes;
     std::cin >> numeroPacotes;
     for (int i = 0; i < numeroPacotes; i++) {
@@ -46,13 +53,36 @@ int main() {
         std::cin >> tempoChegada >> dummy >> idPacote >> dummy >> origem >> dummy >> destino;
 
         Pacote* pacote = new Pacote(idPacote, origem, destino, tempoChegada);
-        logistica.calcularRota(origem, destino, pacote->rota); // <-- agora por referência!
+        logistica.calcularRota(origem, destino, pacote->rota);
 
+        pacote->estado = CHEGADA_ESCALONADA;
         Evento eventoChegada(tempoChegada, CHEGADA_PACOTE, pacote);
         eventoChegada.idArmazemOrigem = origem;
         escalonador.insereEvento(eventoChegada);
     }
 
+    // Agenda eventos de transporte periódicos para cada par origem-destino
+    for (int origem = 0; origem < numeroArmazens; origem++) {
+        for (int destino = 0; destino < numeroArmazens; destino++) {
+            if (origem != destino) {
+                // Verifica se existe conexão direta
+                List<VerticeArmazem*>::Node* curr = logistica.encontrarVertice(origem)->vizinhos.get_head();
+                bool temConexao = false;
+                while (curr) {
+                    if (curr->data->storage->id == destino) {
+                        temConexao = true;
+                        break;
+                    }
+                    curr = curr->next;
+                }
+                if (temConexao) {
+                    escalonador.insereEvento(Evento(intervaloTransportes, TRANSPORTE_PACOTES, origem, destino));
+                }
+            }
+        }
+    }
+
+    // Loop principal da simulação
     while (!escalonador.is_empty()) {
         Evento evento = escalonador.retiraProximoEvento();
 
@@ -64,7 +94,6 @@ int main() {
             if (pacote->idArmazemOrigem == pacote->idArmazemDestino) {
                 evento.imprimirEvento("entregue", pacote->idArmazemDestino);
                 pacote->estado = ENTREGUE;
-                delete pacote;
                 continue;
             }
 
