@@ -52,67 +52,68 @@ public:
     }
 
     void calcularRota(int origem, int destino, List<int>& rota) {
-    // Limpa a rota antes de preencher (se você tiver um método clear, use-o)
-    // Se não tiver, pode ignorar, pois você sempre preenche do zero.
-
-    if (origem == destino) {
-        rota.push_back(origem);
-        return;
-    }
-
-    int visitado[100];
-    int anterior[100];
-    int fila[100];
-    int ini = 0, fim = 0;
-
-    for (int i = 0; i < numArmazens; ++i) {
-        visitado[i] = 0;
-        anterior[i] = -1;
-    }
-
-    fila[fim++] = origem;
-    visitado[origem] = 1;
-
-    bool achou = false;
-    while (ini < fim) {
-        int atual = fila[ini++];
-        VerticeArmazem* verticeAtual = encontrarVertice(atual);
-        if (!verticeAtual) continue;
-
-        List<VerticeArmazem*>::Node* vizinhoNode = verticeAtual->vizinhos.get_head();
-        while (vizinhoNode) {
-            int idVizinho = vizinhoNode->data->storage->id;
-            if (!visitado[idVizinho]) {
-                visitado[idVizinho] = 1;
-                anterior[idVizinho] = atual;
-                fila[fim++] = idVizinho;
-                if (idVizinho == destino) {
-                    achou = true;
-                    break;
-                }
-            }
-            vizinhoNode = vizinhoNode->next;
+        if (origem == destino) {
+            rota.push_back(origem);
+            return;
         }
-        if (achou) break;
-    }
 
-    // Reconstrói o caminho
-    if (!visitado[destino]) {
-        // Não existe caminho
-        return;
+        // --- ALTERAÇÃO: Alocação dinâmica dos vetores auxiliares ---
+        bool* visitado = new bool[numArmazens];
+        int* anterior = new int[numArmazens];
+        List<int> fila; // Usando a lista como fila para a BFS
+
+        for (int i = 0; i < numArmazens; ++i) {
+            visitado[i] = false;
+            anterior[i] = -1;
+        }
+
+        fila.push_back(origem);
+        visitado[origem] = true;
+        bool achou = false;
+
+        while (!fila.is_empty()) {
+            int atual = fila.front();
+            fila.pop_front();
+
+            VerticeArmazem* verticeAtual = encontrarVertice(atual);
+            if (!verticeAtual) continue;
+
+            List<VerticeArmazem*>::Node* vizinhoNode = verticeAtual->vizinhos.get_head();
+            while (vizinhoNode) {
+                int idVizinho = vizinhoNode->data->storage->id;
+                if (!visitado[idVizinho]) {
+                    visitado[idVizinho] = true;
+                    anterior[idVizinho] = atual;
+                    fila.push_back(idVizinho);
+                    if (idVizinho == destino) {
+                        achou = true;
+                        break;
+                    }
+                }
+                vizinhoNode = vizinhoNode->next;
+            }
+            if (achou) break;
+        }
+
+        if (achou) {
+            List<int> caminhoInvertido;
+            int atual = destino;
+            while (atual != -1) {
+                caminhoInvertido.push_front(atual);
+                atual = anterior[atual];
+            }
+            
+            auto curr = caminhoInvertido.get_head();
+            while(curr) {
+                rota.push_back(curr->data);
+                curr = curr->next;
+            }
+        }
+        
+        // --- ALTERAÇÃO: Libera memória alocada ---
+        delete[] visitado;
+        delete[] anterior;
     }
-    int caminho[100];
-    int tam = 0;
-    int atual = destino;
-    while (atual != -1) {
-        caminho[tam++] = atual;
-        atual = anterior[atual];
-    }
-    for (int i = tam - 1; i >= 0; --i) {
-        rota.push_back(caminho[i]);
-    }
-}
-    
 };
 
 #endif

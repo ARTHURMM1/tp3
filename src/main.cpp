@@ -5,21 +5,25 @@
 #include "Escalonador.hpp"
 #include "Pacote.hpp"
 #include "Armazem.hpp"
+#include "List.hpp"
 
-// Função utilitária para encontrar o índice da seção de destino em um armazém
-int encontrarIndiceSecao(Armazem* armazem, int idDestino) {
-    if (!armazem) return -1;
-    int idx = 0;
-    List<PilhaPorDestino*>::Node* curr = armazem->secoes.get_head();
-    while (curr) {
-        if (curr->data->idDestino == idDestino) return idx;
-        curr = curr->next;
-        idx++;
+// Função auxiliar para verificar se um pacote está numa lista
+bool pacoteEstaNaLista(Pacote* p, List<Pacote*>& lista) {
+    auto node = lista.get_head();
+    while(node) {
+        if (node->data->id == p->id) {
+            return true;
+        }
+        node = node->next;
     }
-    return -1;
+    return false;
 }
 
+
 int main() {
+    std::ios_base::sync_with_stdio(false);
+    std::cin.tie(NULL);
+
     int capacidadeTransporte, latenciaTransporte, intervaloTransportes, custoRemocao, numeroArmazens;
     std::cin >> capacidadeTransporte >> latenciaTransporte >> intervaloTransportes >> custoRemocao >> numeroArmazens;
 
@@ -27,13 +31,10 @@ int main() {
     logistica.setNumArmazens(numeroArmazens);
     Escalonador escalonador;
 
-    // Cria armazéns
     for (int i = 0; i < numeroArmazens; i++) {
-        Armazem* armazem = new Armazem(i);
-        logistica.add_storage(armazem);
+        logistica.add_storage(new Armazem(i));
     }
 
-    // Lê matriz de adjacência e cria conexões
     for (int i = 0; i < numeroArmazens; i++) {
         for (int j = 0; j < numeroArmazens; j++) {
             int conexao;
@@ -44,106 +45,132 @@ int main() {
         }
     }
 
-    // Lê pacotes e agenda eventos de chegada
     int numeroPacotes;
     std::cin >> numeroPacotes;
+    
+    int pacotesAtivos = numeroPacotes;
+
     for (int i = 0; i < numeroPacotes; i++) {
         int tempoChegada, idPacote, origem, destino;
         std::string dummy;
         std::cin >> tempoChegada >> dummy >> idPacote >> dummy >> origem >> dummy >> destino;
-
         Pacote* pacote = new Pacote(idPacote, origem, destino, tempoChegada);
         logistica.calcularRota(origem, destino, pacote->rota);
-
+        if(!pacote->rota.is_empty()) pacote->rota.pop_front(); 
         pacote->estado = CHEGADA_ESCALONADA;
-        Evento eventoChegada(tempoChegada, CHEGADA_PACOTE, pacote);
-        eventoChegada.idArmazemOrigem = origem;
-        escalonador.insereEvento(eventoChegada);
+        escalonador.insereEvento(Evento(tempoChegada, EVENTO_PACOTE, pacote));
     }
 
-    // Agenda eventos de transporte periódicos para cada par origem-destino
-    for (int origem = 0; origem < numeroArmazens; origem++) {
-        for (int destino = 0; destino < numeroArmazens; destino++) {
-            if (origem != destino) {
-                // Verifica se existe conexão direta
-                List<VerticeArmazem*>::Node* curr = logistica.encontrarVertice(origem)->vizinhos.get_head();
-                bool temConexao = false;
-                while (curr) {
-                    if (curr->data->storage->id == destino) {
-                        temConexao = true;
-                        break;
-                    }
-                    curr = curr->next;
-                }
-                if (temConexao) {
-                    escalonador.insereEvento(Evento(intervaloTransportes, TRANSPORTE_PACOTES, origem, destino));
-                }
+    for (int i = 0; i < numeroArmazens; i++) {
+        VerticeArmazem* v = logistica.encontrarVertice(i);
+        if(v) {
+            auto curr = v->vizinhos.get_head();
+            while(curr) {
+                int j = curr->data->storage->id;
+                escalonador.insereEvento(Evento(intervaloTransportes, EVENTO_TRANSPORTE, i, j));
+                curr = curr->next;
             }
         }
     }
 
-    // Loop principal da simulação
     while (!escalonador.is_empty()) {
         Evento evento = escalonador.retiraProximoEvento();
 
-        if (evento.tipo == CHEGADA_PACOTE) {
+        if (evento.tipo == EVENTO_PACOTE) {
             Pacote* pacote = evento.pacote;
-            if (!pacote || pacote->estado == ENTREGUE) continue;
+            int armazemAtualId = pacote->idArmazemOrigem;
 
-            // Se chegou ao destino final, entrega e deleta
-            if (pacote->idArmazemOrigem == pacote->idArmazemDestino) {
-                evento.imprimirEvento("entregue", pacote->idArmazemDestino);
+            if (armazemAtualId == pacote->idArmazemDestino) {
                 pacote->estado = ENTREGUE;
-                continue;
-            }
-
-            Armazem* armazem = logistica.encontrarArmazem(pacote->idArmazemOrigem);
-            if (!armazem) {
+                Evento evtLog(evento.tempo, EVENTO_PACOTE, pacote);
+                evtLog.imprimir();
                 delete pacote;
-                continue;
+                pacotesAtivos--;
+            } else {
+                Armazem* armazemAtual = logistica.encontrarArmazem(armazemAtualId);
+                int proximoDestino = pacote->getProximoDestino();
+                armazemAtual->armazenarPacote(pacote, proximoDestino);
+                pacote->estado = ARMAZENADO;
+                
+                Evento evtLog(evento.tempo, EVENTO_PACOTE, pacote);
+                evtLog.idArmazemDestino = proximoDestino;
+                evtLog.imprimir();
             }
+        } else if (evento.tipo == EVENTO_TRANSPORTE) {
+            int idOrigem = evento.idArmazemOrigem;
+            int idDestino = evento.idArmazemDestino;
+            
+            Armazem* armazemOrigem = logistica.encontrarArmazem(idOrigem);
+            if (armazemOrigem) {
+                Stack<Pacote*>* pilha = armazemOrigem->getPilhaPorDestino(idDestino);
 
-            int proximoDestino = pacote->getProximoDestino();
-            armazem->armazenarPacote(pacote, proximoDestino);
-            int indiceSecao = encontrarIndiceSecao(armazem, proximoDestino);
-            evento.imprimirEvento("armazenado", pacote->idArmazemOrigem, -1, indiceSecao);
-
-            int tempoTransporte = evento.tempo;
-            if (tempoTransporte % intervaloTransportes != 0)
-                tempoTransporte += intervaloTransportes - (tempoTransporte % intervaloTransportes);
-
-            escalonador.insereEvento(Evento(tempoTransporte, TRANSPORTE_PACOTES, pacote->idArmazemOrigem, proximoDestino));
-        } 
-        else if (evento.tipo == TRANSPORTE_PACOTES) {
-            Armazem* origem = logistica.encontrarArmazem(evento.idArmazemOrigem);
-
-            if (origem) {
-                for (int i = 0; i < capacidadeTransporte; i++) {
-                    Pacote* pacote = origem->retirarPacote(evento.idArmazemDestino);
-                    if (!pacote || pacote->estado == ENTREGUE) {
-                        break;
+                if (pilha && !pilha->is_empty()) {
+                    List<Pacote*> pacotes_na_secao;
+                    while (!pilha->is_empty()) {
+                        pacotes_na_secao.push_front(pilha->pop());
                     }
 
-                    int indiceSecao = encontrarIndiceSecao(origem, evento.idArmazemDestino);
+                    List<Pacote*> para_transportar;
+                    for (int i = 0; i < capacidadeTransporte; ++i) {
+                        Pacote* mais_antigo = nullptr;
+                        auto node_iter = pacotes_na_secao.get_head();
+                        while(node_iter) {
+                            Pacote* candidato = node_iter->data;
+                            if (!pacoteEstaNaLista(candidato, para_transportar)) {
+                                if (mais_antigo == nullptr || candidato->tempoPostagem < mais_antigo->tempoPostagem) {
+                                    mais_antigo = candidato;
+                                }
+                            }
+                            node_iter = node_iter->next;
+                        }
+                        if (mais_antigo != nullptr) {
+                            para_transportar.push_back(mais_antigo);
+                        } else {
+                            break; // Não há mais pacotes para selecionar
+                        }
+                    }
 
-                    evento.pacote = pacote;
-                    evento.imprimirEvento("removido", evento.idArmazemOrigem, -1, indiceSecao);
-                    evento.imprimirEvento("transito", evento.idArmazemOrigem, evento.idArmazemDestino);
+                    double tempo_log = evento.tempo;
+                    auto node_iter = pacotes_na_secao.get_head();
+                    while (node_iter) {
+                        tempo_log += custoRemocao;
+                        Evento logRemocao(tempo_log, EVENTO_TRANSPORTE, idOrigem, idDestino);
+                        logRemocao.pacote = node_iter->data;
+                        logRemocao.imprimir("removido de");
+                        node_iter = node_iter->next;
+                    }
 
-                    pacote->idArmazemOrigem = evento.idArmazemDestino;
-                    pacote->avancarRota();
-
-                    // Só agenda chegada se não chegou ao destino final
-                    if (pacote->idArmazemOrigem != pacote->idArmazemDestino) {
-                        Evento eventoChegada(evento.tempo + latenciaTransporte, CHEGADA_PACOTE, pacote);
-                        eventoChegada.idArmazemOrigem = evento.idArmazemDestino;
-                        escalonador.insereEvento(eventoChegada);
+                    Stack<Pacote*> pilha_rearmazenar;
+                    node_iter = pacotes_na_secao.get_head();
+                    while(node_iter) {
+                        Pacote* p = node_iter->data;
+                        if (pacoteEstaNaLista(p, para_transportar)) {
+                            Evento logTransito(tempo_log, EVENTO_TRANSPORTE, idOrigem, idDestino);
+                            logTransito.pacote = p;
+                            logTransito.imprimir("em transito de");
+                            
+                            p->avancarRota();
+                            p->idArmazemOrigem = idDestino;
+                            p->estado = CHEGADA_ESCALONADA;
+                            escalonador.insereEvento(Evento(tempo_log + latenciaTransporte, EVENTO_PACOTE, p));
+                        } else {
+                            pilha_rearmazenar.push(p);
+                        }
+                        node_iter = node_iter->next;
+                    }
+                    
+                    while(!pilha_rearmazenar.is_empty()) {
+                        Pacote* p = pilha_rearmazenar.pop();
+                        Evento logRearmazena(tempo_log, EVENTO_TRANSPORTE, idOrigem, idDestino);
+                        logRearmazena.pacote = p;
+                        logRearmazena.imprimir("rearmazenado em");
+                        pilha->push(p);
                     }
                 }
-
-                if (intervaloTransportes > 0) {
-                    escalonador.insereEvento(Evento(evento.tempo + intervaloTransportes, TRANSPORTE_PACOTES, evento.idArmazemOrigem, evento.idArmazemDestino));
-                }
+            }
+            
+            if (intervaloTransportes > 0 && pacotesAtivos > 0) {
+                escalonador.insereEvento(Evento(evento.tempo + intervaloTransportes, EVENTO_TRANSPORTE, idOrigem, idDestino));
             }
         }
     }

@@ -23,6 +23,10 @@ public:
     ~Armazem() {
         auto curr = secoes.get_head();
         while (curr) {
+            // --- ALTERAÇÃO: Libera a memória dos pacotes restantes na pilha ---
+            while (!curr->data->pilha.is_empty()) {
+                delete curr->data->pilha.pop();
+            }
             delete curr->data;
             curr = curr->next;
         }
@@ -39,24 +43,21 @@ public:
             }
             curr = curr->next;
         }
-        // Se não existe, cria nova seção
         PilhaPorDestino* novaSecao = new PilhaPorDestino(idProximoDestino);
         novaSecao->pilha.push(pacote);
         secoes.push_back(novaSecao);
     }
 
-    Pacote* retirarPacote(int idProximoDestino) {
-        auto curr = secoes.get_head(); 
+    // --- ALTERAÇÃO: Retorna a pilha para um destino, para manipulação no main ---
+    Stack<Pacote*>* getPilhaPorDestino(int idProximoDestino) {
+        auto curr = secoes.get_head();
         while (curr != nullptr) {
             if (curr->data->idDestino == idProximoDestino) {
-                if (!curr->data->pilha.is_empty()) {
-                    return curr->data->pilha.pop();
-                }
-                return nullptr; 
+                return &(curr->data->pilha);
             }
             curr = curr->next;
         }
-        return nullptr; 
+        return nullptr;
     }
 };
 
