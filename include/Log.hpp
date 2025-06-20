@@ -3,30 +3,29 @@
 
 #include "List.hpp"
 #include "VerticeArmazem.hpp"
-#include "Pacote.hpp"
-
-#define MAX_ARMAZENS 100 // Assumindo um número máximo de armazéns para arrays auxiliares
 
 class Log {
 private:
     List<VerticeArmazem*> armazens;
-
-    
+    int numArmazens; 
 
 public:
-    Log() {}
+    Log() : numArmazens(0) {}
     ~Log() {
-        // Libera a memória dos vértices
         while(!armazens.is_empty()) {
             delete armazens.front();
             armazens.pop_front();
         }
     }
+
+    void setNumArmazens(int n) {
+        numArmazens = n;
+    }
     
     VerticeArmazem* encontrarVertice(int id) {
-        List<VerticeArmazem*>::Node* current = armazens.get_head(); // Correção
+        List<VerticeArmazem*>::Node* current = armazens.get_head();
         while (current) {
-            if (current->data->storage.getId() == id) {
+            if (current->data->storage->id == id) {
                 return current->data;
             }
             current = current->next;
@@ -35,7 +34,7 @@ public:
     }
 
     void add_storage(Armazem* novo) {
-        VerticeArmazem* vertice = new VerticeArmazem(*novo); // Correção: desreferencia o ponteiro
+        VerticeArmazem* vertice = new VerticeArmazem(novo);
         armazens.push_back(vertice);
     }
 
@@ -44,71 +43,76 @@ public:
         VerticeArmazem* destino = encontrarVertice(idDestino);
         if (origem && destino) {
             origem->vizinhos.push_back(destino);
-            destino->vizinhos.push_back(origem);
         }
     }
     
     Armazem* encontrarArmazem(int id) {
         VerticeArmazem* v = encontrarVertice(id);
-        return v ? &(v->storage) : nullptr;
+        return v ? v->storage : nullptr;
     }
 
-    List<int> calcularRota(int idOrigem, int idDestino) {
-        List<int> rota;
-        if (idOrigem == idDestino) return rota;
+    void calcularRota(int origem, int destino, List<int>& rota) {
+    // Limpa a rota antes de preencher (se você tiver um método clear, use-o)
+    // Se não tiver, pode ignorar, pois você sempre preenche do zero.
 
-        List<int> fila;
-        bool visitado[MAX_ARMAZENS] = {false};
-        int predecessor[MAX_ARMAZENS];
-        for(int i=0; i<MAX_ARMAZENS; ++i) predecessor[i] = -1;
+    if (origem == destino) {
+        rota.push_back(origem);
+        return;
+    }
 
-        fila.push_back(idOrigem);
-        visitado[idOrigem] = true;
+    int visitado[100];
+    int anterior[100];
+    int fila[100];
+    int ini = 0, fim = 0;
 
-        bool encontrado = false;
-        while (!fila.is_empty()) {
-            int atualId = fila.front();
-            fila.pop_front();
+    for (int i = 0; i < numArmazens; ++i) {
+        visitado[i] = 0;
+        anterior[i] = -1;
+    }
 
-            if (atualId == idDestino) {
-                encontrado = true;
-                break;
-            }
+    fila[fim++] = origem;
+    visitado[origem] = 1;
 
-            VerticeArmazem* verticeAtual = encontrarVertice(atualId);
-            if (verticeAtual) {
-                List<VerticeArmazem*>::Node* vizinhoNode = verticeAtual->vizinhos.get_head(); // Correção
-                while (vizinhoNode) {
-                    int vizinhoId = vizinhoNode->data->storage.getId();
-                    if (!visitado[vizinhoId]) {
-                        visitado[vizinhoId] = true;
-                        predecessor[vizinhoId] = atualId;
-                        fila.push_back(vizinhoId);
-                    }
-                    vizinhoNode = vizinhoNode->next;
+    bool achou = false;
+    while (ini < fim) {
+        int atual = fila[ini++];
+        VerticeArmazem* verticeAtual = encontrarVertice(atual);
+        if (!verticeAtual) continue;
+
+        List<VerticeArmazem*>::Node* vizinhoNode = verticeAtual->vizinhos.get_head();
+        while (vizinhoNode) {
+            int idVizinho = vizinhoNode->data->storage->id;
+            if (!visitado[idVizinho]) {
+                visitado[idVizinho] = 1;
+                anterior[idVizinho] = atual;
+                fila[fim++] = idVizinho;
+                if (idVizinho == destino) {
+                    achou = true;
+                    break;
                 }
             }
+            vizinhoNode = vizinhoNode->next;
         }
-
-        if (encontrado) {
-            List<int> rotaInvertida;
-            int passo = idDestino;
-            while (passo != -1) {
-                rotaInvertida.push_front(passo);
-                passo = predecessor[passo];
-            }
-            
-            rotaInvertida.pop_front();
-            
-            List<int>::Node* node = rotaInvertida.get_head(); // Correção
-            while(node) {
-                rota.push_back(node->data);
-                node = node->next;
-            }
-        }
-        
-        return rota;
+        if (achou) break;
     }
+
+    // Reconstrói o caminho
+    if (!visitado[destino]) {
+        // Não existe caminho
+        return;
+    }
+    int caminho[100];
+    int tam = 0;
+    int atual = destino;
+    while (atual != -1) {
+        caminho[tam++] = atual;
+        atual = anterior[atual];
+    }
+    for (int i = tam - 1; i >= 0; --i) {
+        rota.push_back(caminho[i]);
+    }
+}
+    
 };
 
 #endif

@@ -4,14 +4,13 @@
 template <typename T>
 
 class Stack {
-    private:
-        int maxsize;
-        T* arr;
-        int top;
-
     public:
-        Stack(int maxsize = 100) : maxsize(maxsize), arr(new T[maxsize]), top(-1) {}
+        Stack(int maxsize = 1000000) : maxsize(maxsize), arr(new T[maxsize]), top(-1) {}
         ~Stack() { delete[] arr; }
+
+        // PROÍBE CÓPIA
+        Stack(const Stack&) = delete;
+        Stack& operator=(const Stack&) = delete;
 
         void push (T elemento) {
             if (top >= maxsize - 1) {
@@ -35,6 +34,10 @@ class Stack {
         }
 
         int size() const {return top + 1;}
+    private:
+        int maxsize;
+        T* arr;
+        int top;
 };
 
 #endif

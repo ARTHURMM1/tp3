@@ -5,7 +5,7 @@
 #include <stdexcept>
 
 
-#define HEAP_SIZE 100
+#define HEAP_SIZE 1000000
 
 class Escalonador {
 private:

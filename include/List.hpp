@@ -1,14 +1,11 @@
 #ifndef LIST_HPP
 #define LIST_HPP
 
-#include <stdexcept> // Para std::runtime_error
+#include <stdexcept> 
 
 template <typename T>
 class List {
-
-   
-
-    public:
+public:
     struct Node {
         T data;
         Node* next;
@@ -93,8 +90,12 @@ class List {
     Node* get_head() { 
         return head;
     }
- private:
-    
+
+    // PROÍBE CÓPIA
+    List(const List&) = delete;
+    List& operator=(const List&) = delete;
+
+private:
     Node* head;
     int count;
 

@@ -21,12 +21,12 @@ public:
     int idArmazemOrigem;
     int idArmazemDestino;
     EstadoPacote estado;
-    List<int> rota; // Rota como uma lista de IDs de armazéns
+    List<int> rota; 
     
-    // Para estatísticas
+   
     double tempoPostagem;
     double tempoTotalArmazenado;
-    double tempoEntradaArmazem; // Para calcular tempo de estadia
+    double tempoEntradaArmazem; 
 
     Pacote(int id = -1, int origem = -1, int destino = -1, double tempo = 0.0)
         : id(id),
@@ -38,20 +38,24 @@ public:
           tempoEntradaArmazem(0.0)
           {}
     
-    // Retorna o próximo armazém na rota
+   
     int getProximoDestino() {
         if (!rota.is_empty()) {
             return rota.front();
         }
-        return -1; // Sem próximo destino
+        return -1; 
     }
 
-    // Avança para o próximo passo na rota
+   
     void avancarRota() {
         if (!rota.is_empty()) {
             rota.pop_front();
         }
     }
+
+    // PROÍBE CÓPIA
+    Pacote(const Pacote&) = delete;
+    Pacote& operator=(const Pacote&) = delete;
 };
 
 #endif
