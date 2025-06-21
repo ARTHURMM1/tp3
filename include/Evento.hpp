@@ -22,19 +22,17 @@ public:
     int idArmazemDestino;
     long long chave;
 
-    // Construtor para eventos de pacote
     Evento(double t, int tip, Pacote* pac)
         : tempo(t), tipo(tip), pacote(pac), idArmazemOrigem(-1), idArmazemDestino(-1) {
+        // A chave continua usando o ID original para desempate
         this->chave = (long long)tempo * 10000000LL + (long long)(pacote ? pacote->id : -1) * 10LL + EVENTO_PACOTE;
         if (pacote) {
             this->idArmazemOrigem = pacote->idArmazemOrigem;
         }
     }
     
-    // Construtor para eventos de transporte
     Evento(double t, int tip, int orig, int dest)
         : tempo(t), tipo(tip), pacote(nullptr), idArmazemOrigem(orig), idArmazemDestino(dest) {
-        // --- CORREÇÃO: Utiliza os parâmetros 'orig' e 'dest' ao invés de 'origem' e 'destino' ---
         this->chave = (long long)tempo * 10000000LL + (long long)orig * 10000LL + (long long)dest * 10LL + EVENTO_TRANSPORTE;
     }
 
@@ -51,7 +49,8 @@ public:
     void imprimir() const {
         printPaddedNumber((int)tempo, 7);
         std::cout << " pacote ";
-        printPaddedNumber(pacote ? pacote->id : -1, 3);
+        // --- CORREÇÃO: Usa o idImpressao para o log ---
+        printPaddedNumber(pacote ? pacote->idImpressao : -1, 3);
 
         if (tipo == EVENTO_PACOTE) {
             if (pacote && pacote->estado == ENTREGUE) {
@@ -70,14 +69,15 @@ public:
     void imprimir(const std::string& msg) const {
         printPaddedNumber((int)tempo, 7);
         std::cout << " pacote ";
-        printPaddedNumber(pacote ? pacote->id : -1, 3);
+        // --- CORREÇÃO: Usa o idImpressao para o log ---
+        printPaddedNumber(pacote ? pacote->idImpressao : -1, 3);
         std::cout << " " << msg << " ";
         printPaddedNumber(idArmazemOrigem, 3);
 
         if (msg == "em transito de") {
             std::cout << " para ";
             printPaddedNumber(idArmazemDestino, 3);
-        } else { // removido de, rearmazenado em
+        } else {
             std::cout << " na secao ";
             printPaddedNumber(idArmazemDestino, 3);
         }

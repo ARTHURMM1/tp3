@@ -1,6 +1,7 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
+#include <fstream>
 #include "Log.hpp"
 #include "Escalonador.hpp"
 #include "Pacote.hpp"
@@ -19,13 +20,23 @@ bool pacoteEstaNaLista(Pacote* p, List<Pacote*>& lista) {
     return false;
 }
 
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        std::cerr << "Uso: " << argv[0] << " <arquivo_de_entrada>" << std::endl;
+        return 1;
+    }
 
-int main() {
+    std::ifstream inputFile(argv[1]);
+    if (!inputFile.is_open()) {
+        std::cerr << "Erro: Nao foi possivel abrir o arquivo " << argv[1] << std::endl;
+        return 1;
+    }
+
     std::ios_base::sync_with_stdio(false);
-    std::cin.tie(NULL);
+    std::cout.tie(NULL);
 
     int capacidadeTransporte, latenciaTransporte, intervaloTransportes, custoRemocao, numeroArmazens;
-    std::cin >> capacidadeTransporte >> latenciaTransporte >> intervaloTransportes >> custoRemocao >> numeroArmazens;
+    inputFile >> capacidadeTransporte >> latenciaTransporte >> intervaloTransportes >> custoRemocao >> numeroArmazens;
 
     Log logistica;
     logistica.setNumArmazens(numeroArmazens);
@@ -38,7 +49,7 @@ int main() {
     for (int i = 0; i < numeroArmazens; i++) {
         for (int j = 0; j < numeroArmazens; j++) {
             int conexao;
-            std::cin >> conexao;
+            inputFile >> conexao;
             if (conexao == 1) {
                 logistica.add_path(i, j);
             }
@@ -46,43 +57,58 @@ int main() {
     }
 
     int numeroPacotes;
-    std::cin >> numeroPacotes;
+    inputFile >> numeroPacotes;
     
     int pacotesAtivos = numeroPacotes;
+    int tempoPrimeiroPacote = -1;
 
     for (int i = 0; i < numeroPacotes; i++) {
-        int tempoChegada, idPacote, origem, destino;
+        int tempoChegada, idPacoteDoArquivo, origem, destino;
         std::string dummy;
-        std::cin >> tempoChegada >> dummy >> idPacote >> dummy >> origem >> dummy >> destino;
-        Pacote* pacote = new Pacote(idPacote, origem, destino, tempoChegada);
+        inputFile >> tempoChegada >> dummy >> idPacoteDoArquivo >> dummy >> origem >> dummy >> destino;
+        
+        Pacote* pacote = new Pacote(idPacoteDoArquivo, i, origem, destino, tempoChegada); 
+        
         logistica.calcularRota(origem, destino, pacote->rota);
         if(!pacote->rota.is_empty()) pacote->rota.pop_front(); 
         pacote->estado = CHEGADA_ESCALONADA;
         escalonador.insereEvento(Evento(tempoChegada, EVENTO_PACOTE, pacote));
-    }
 
-    for (int i = 0; i < numeroArmazens; i++) {
-        VerticeArmazem* v = logistica.encontrarVertice(i);
-        if(v) {
-            auto curr = v->vizinhos.get_head();
-            while(curr) {
-                int j = curr->data->storage->id;
-                escalonador.insereEvento(Evento(intervaloTransportes, EVENTO_TRANSPORTE, i, j));
-                curr = curr->next;
+        if (tempoPrimeiroPacote == -1 || tempoChegada < tempoPrimeiroPacote) {
+            tempoPrimeiroPacote = tempoChegada;
+        }
+    }
+    
+    inputFile.close();
+    
+    if (numeroPacotes > 0) {
+        double tempoPrimeiroTransporte = tempoPrimeiroPacote + intervaloTransportes + custoRemocao;
+        for (int i = 0; i < numeroArmazens; i++) {
+            VerticeArmazem* v = logistica.encontrarVertice(i);
+            if(v) {
+                auto curr = v->vizinhos.get_head();
+                while(curr) {
+                    int j = curr->data->storage->id;
+                    escalonador.insereEvento(Evento(tempoPrimeiroTransporte, EVENTO_TRANSPORTE, i, j));
+                    curr = curr->next;
+                }
             }
         }
     }
 
-    while (!escalonador.is_empty()) {
+    while (!escalonador.is_empty() && pacotesAtivos > 0) {
         Evento evento = escalonador.retiraProximoEvento();
 
         if (evento.tipo == EVENTO_PACOTE) {
             Pacote* pacote = evento.pacote;
+            if (!pacote || pacote->estado == ENTREGUE) continue;
+
             int armazemAtualId = pacote->idArmazemOrigem;
 
             if (armazemAtualId == pacote->idArmazemDestino) {
                 pacote->estado = ENTREGUE;
                 Evento evtLog(evento.tempo, EVENTO_PACOTE, pacote);
+                evtLog.idArmazemOrigem = armazemAtualId;
                 evtLog.imprimir();
                 delete pacote;
                 pacotesAtivos--;
@@ -97,27 +123,34 @@ int main() {
                 evtLog.imprimir();
             }
         } else if (evento.tipo == EVENTO_TRANSPORTE) {
+            if (intervaloTransportes > 0 && pacotesAtivos > 0) {
+                escalonador.insereEvento(Evento(evento.tempo + intervaloTransportes, EVENTO_TRANSPORTE, evento.idArmazemOrigem, evento.idArmazemDestino));
+            }
+
+            if (pacotesAtivos == 0) continue;
+            
             int idOrigem = evento.idArmazemOrigem;
             int idDestino = evento.idArmazemDestino;
             
             Armazem* armazemOrigem = logistica.encontrarArmazem(idOrigem);
             if (armazemOrigem) {
                 Stack<Pacote*>* pilha = armazemOrigem->getPilhaPorDestino(idDestino);
-
                 if (pilha && !pilha->is_empty()) {
-                    List<Pacote*> pacotes_na_secao;
+                    List<Pacote*> pacotes_removidos;
                     while (!pilha->is_empty()) {
-                        pacotes_na_secao.push_front(pilha->pop());
+                        pacotes_removidos.push_back(pilha->pop());
                     }
 
                     List<Pacote*> para_transportar;
                     for (int i = 0; i < capacidadeTransporte; ++i) {
                         Pacote* mais_antigo = nullptr;
-                        auto node_iter = pacotes_na_secao.get_head();
+                        auto node_iter = pacotes_removidos.get_head();
                         while(node_iter) {
                             Pacote* candidato = node_iter->data;
                             if (!pacoteEstaNaLista(candidato, para_transportar)) {
-                                if (mais_antigo == nullptr || candidato->tempoPostagem < mais_antigo->tempoPostagem) {
+                                if (mais_antigo == nullptr || 
+                                    candidato->tempoPostagem < mais_antigo->tempoPostagem ||
+                                    (candidato->tempoPostagem == mais_antigo->tempoPostagem && candidato->id < mais_antigo->id)) {
                                     mais_antigo = candidato;
                                 }
                             }
@@ -126,12 +159,12 @@ int main() {
                         if (mais_antigo != nullptr) {
                             para_transportar.push_back(mais_antigo);
                         } else {
-                            break; // Não há mais pacotes para selecionar
+                            break; 
                         }
                     }
-
-                    double tempo_log = evento.tempo;
-                    auto node_iter = pacotes_na_secao.get_head();
+                    
+                    double tempo_log = evento.tempo - custoRemocao;
+                    auto node_iter = pacotes_removidos.get_head();
                     while (node_iter) {
                         tempo_log += custoRemocao;
                         Evento logRemocao(tempo_log, EVENTO_TRANSPORTE, idOrigem, idDestino);
@@ -139,38 +172,44 @@ int main() {
                         logRemocao.imprimir("removido de");
                         node_iter = node_iter->next;
                     }
+                    
+                    double tempo_final = tempo_log;
 
+                    // --- LÓGICA DE RE-ARMAZENAMENTO CORRIGIDA ---
                     Stack<Pacote*> pilha_rearmazenar;
-                    node_iter = pacotes_na_secao.get_head();
+                    node_iter = pacotes_removidos.get_head();
                     while(node_iter) {
                         Pacote* p = node_iter->data;
-                        if (pacoteEstaNaLista(p, para_transportar)) {
-                            Evento logTransito(tempo_log, EVENTO_TRANSPORTE, idOrigem, idDestino);
-                            logTransito.pacote = p;
-                            logTransito.imprimir("em transito de");
-                            
-                            p->avancarRota();
-                            p->idArmazemOrigem = idDestino;
-                            p->estado = CHEGADA_ESCALONADA;
-                            escalonador.insereEvento(Evento(tempo_log + latenciaTransporte, EVENTO_PACOTE, p));
-                        } else {
-                            pilha_rearmazenar.push(p);
+                        if (!pacoteEstaNaLista(p, para_transportar)) {
+                           // Adiciona à pilha para re-armazenamento posterior
+                           pilha_rearmazenar.push(p); 
                         }
                         node_iter = node_iter->next;
                     }
                     
-                    while(!pilha_rearmazenar.is_empty()) {
-                        Pacote* p = pilha_rearmazenar.pop();
-                        Evento logRearmazena(tempo_log, EVENTO_TRANSPORTE, idOrigem, idDestino);
-                        logRearmazena.pacote = p;
+                    // Processa os pacotes a transportar
+                    node_iter = para_transportar.get_head();
+                    while(node_iter){
+                        Pacote* p = node_iter->data;
+                        Evento logTransito(tempo_final, EVENTO_TRANSPORTE, idOrigem, idDestino);
+                        logTransito.pacote = p;
+                        logTransito.imprimir("em transito de");
+                        p->avancarRota();
+                        p->idArmazemOrigem = idDestino;
+                        p->estado = CHEGADA_ESCALONADA;
+                        escalonador.insereEvento(Evento(tempo_final + latenciaTransporte, EVENTO_PACOTE, p));
+                        node_iter = node_iter->next;
+                    }
+                    
+                    // Empilha de volta na pilha principal na ordem correta
+                    while(!pilha_rearmazenar.is_empty()){
+                        Pacote* p_rearm = pilha_rearmazenar.pop();
+                        Evento logRearmazena(tempo_final, EVENTO_TRANSPORTE, idOrigem, idDestino);
+                        logRearmazena.pacote = p_rearm;
                         logRearmazena.imprimir("rearmazenado em");
-                        pilha->push(p);
+                        pilha->push(p_rearm);
                     }
                 }
-            }
-            
-            if (intervaloTransportes > 0 && pacotesAtivos > 0) {
-                escalonador.insereEvento(Evento(evento.tempo + intervaloTransportes, EVENTO_TRANSPORTE, idOrigem, idDestino));
             }
         }
     }
