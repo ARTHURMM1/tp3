@@ -136,15 +136,15 @@ int main(int argc, char *argv[]) {
             if (armazemOrigem) {
                 Stack<Pacote*>* pilha = armazemOrigem->getPilhaPorDestino(idDestino);
                 if (pilha && !pilha->is_empty()) {
-                    List<Pacote*> pacotes_removidos;
+                    List<Pacote*> pacotes_removidos_lifo;
                     while (!pilha->is_empty()) {
-                        pacotes_removidos.push_back(pilha->pop());
+                        pacotes_removidos_lifo.push_back(pilha->pop());
                     }
 
                     List<Pacote*> para_transportar;
                     for (int i = 0; i < capacidadeTransporte; ++i) {
                         Pacote* mais_antigo = nullptr;
-                        auto node_iter = pacotes_removidos.get_head();
+                        auto node_iter = pacotes_removidos_lifo.get_head();
                         while(node_iter) {
                             Pacote* candidato = node_iter->data;
                             if (!pacoteEstaNaLista(candidato, para_transportar)) {
@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
                     }
                     
                     double tempo_log = evento.tempo - custoRemocao;
-                    auto node_iter = pacotes_removidos.get_head();
+                    auto node_iter = pacotes_removidos_lifo.get_head();
                     while (node_iter) {
                         tempo_log += custoRemocao;
                         Evento logRemocao(tempo_log, EVENTO_TRANSPORTE, idOrigem, idDestino);
@@ -175,33 +175,38 @@ int main(int argc, char *argv[]) {
                     
                     double tempo_final = tempo_log;
 
-                    // --- LÓGICA DE RE-ARMAZENAMENTO CORRIGIDA ---
+                    // --- INÍCIO DA LÓGICA CORRETA E DEFINITIVA ---
+                    
+                    // 1. Reverte a lista de remoção para obter a ordem de chegada (FIFO)
+                    List<Pacote*> pacotes_em_ordem_fifo;
+                    node_iter = pacotes_removidos_lifo.get_head();
+                    while(node_iter) {
+                        pacotes_em_ordem_fifo.push_front(node_iter->data);
+                        node_iter = node_iter->next;
+                    }
+
+                    // 2. Processa transporte e re-armazenamento iterando na ordem FIFO
                     Stack<Pacote*> pilha_rearmazenar;
-                    node_iter = pacotes_removidos.get_head();
+                    node_iter = pacotes_em_ordem_fifo.get_head();
                     while(node_iter) {
                         Pacote* p = node_iter->data;
-                        if (!pacoteEstaNaLista(p, para_transportar)) {
-                           // Adiciona à pilha para re-armazenamento posterior
-                           pilha_rearmazenar.push(p); 
+                        if (pacoteEstaNaLista(p, para_transportar)) {
+                            // Imprime "em transito" na ordem FIFO
+                            Evento logTransito(tempo_final, EVENTO_TRANSPORTE, idOrigem, idDestino);
+                            logTransito.pacote = p;
+                            logTransito.imprimir("em transito de");
+                            p->avancarRota();
+                            p->idArmazemOrigem = idDestino;
+                            p->estado = CHEGADA_ESCALONADA;
+                            escalonador.insereEvento(Evento(tempo_final + latenciaTransporte, EVENTO_PACOTE, p));
+                        } else {
+                            // Adiciona na pilha para re-armazenar, mantendo a ordem relativa
+                            pilha_rearmazenar.push(p);
                         }
                         node_iter = node_iter->next;
                     }
                     
-                    // Processa os pacotes a transportar
-                    node_iter = para_transportar.get_head();
-                    while(node_iter){
-                        Pacote* p = node_iter->data;
-                        Evento logTransito(tempo_final, EVENTO_TRANSPORTE, idOrigem, idDestino);
-                        logTransito.pacote = p;
-                        logTransito.imprimir("em transito de");
-                        p->avancarRota();
-                        p->idArmazemOrigem = idDestino;
-                        p->estado = CHEGADA_ESCALONADA;
-                        escalonador.insereEvento(Evento(tempo_final + latenciaTransporte, EVENTO_PACOTE, p));
-                        node_iter = node_iter->next;
-                    }
-                    
-                    // Empilha de volta na pilha principal na ordem correta
+                    // 3. Empilha de volta na pilha principal na ordem LIFO correta
                     while(!pilha_rearmazenar.is_empty()){
                         Pacote* p_rearm = pilha_rearmazenar.pop();
                         Evento logRearmazena(tempo_final, EVENTO_TRANSPORTE, idOrigem, idDestino);
@@ -209,6 +214,7 @@ int main(int argc, char *argv[]) {
                         logRearmazena.imprimir("rearmazenado em");
                         pilha->push(p_rearm);
                     }
+                    // --- FIM DA LÓGICA CORRETA E DEFINITIVA ---
                 }
             }
         }
