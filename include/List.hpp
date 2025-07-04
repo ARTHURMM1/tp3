@@ -12,35 +12,46 @@ public:
         Node(const T& value) : data(value), next(nullptr) {}
     };
 
-    List() : head(nullptr), count(0) {}
+    List() : head(nullptr), tail(nullptr), count(0) {}
     ~List() {
-        while (head) {
-            Node* temp = head;
-            head = head->next;
-            delete temp;
-        }
-    }
-
-    void push_front(const T& value) {
-        Node* new_node = new Node(value);
-        new_node->next = head;
-        head = new_node;
-        ++count;
+        clear();
     }
 
     void push_back(const T& value) {
         Node* new_node = new Node(value);
         if (!head) {
-            head = new_node;
+            head = tail = new_node;
         } else {
-            Node* curr = head;
-            while (curr->next) {
-                curr = curr->next;
-            }
-            curr->next = new_node;
+            tail->next = new_node;
+            tail = new_node;
         }
         ++count;
     }
+
+    // NOVO: Método para inserção ordenada
+    template <typename Compare>
+    void push_sorted(const T& value, Compare comp) {
+        Node* new_node = new Node(value);
+        if (!head || comp(value, head->data)) {
+            new_node->next = head;
+            head = new_node;
+            if (!tail) {
+                tail = head;
+            }
+        } else {
+            Node* curr = head;
+            while (curr->next && !comp(value, curr->next->data)) {
+                curr = curr->next;
+            }
+            new_node->next = curr->next;
+            curr->next = new_node;
+            if (!new_node->next) { // se o novo nó é o último
+                tail = new_node;
+            }
+        }
+        ++count;
+    }
+
 
     bool is_empty() const {
         return head == nullptr;
@@ -49,57 +60,29 @@ public:
     int size() const {
         return count;
     }
-
-    bool pop_front() {
-        if (!head) return false;
-        Node* temp = head;
-        head = head->next;
-        delete temp;
-        --count;
-        return true;
-    }
-
-    bool pop_back() {
-        if (!head) return false;
-        if(!head->next) {
-            delete head;
-            head = nullptr;
-            --count;
-            return true;
+    
+    void clear() {
+         while (head) {
+            Node* temp = head;
+            head = head->next;
+            delete temp;
         }
-        Node* curr = head;
-        while (curr->next->next) {
-            curr = curr->next;
-        }
-        delete curr->next;
-        curr->next = nullptr;
-        --count;    
-        return true;
+        tail = nullptr;
+        count = 0;
     }
 
-    T& front() {
-        if (is_empty()) throw std::runtime_error("Lista vazia");
-        return head->data;
-    }
-
-    const T& front() const {
-        if (is_empty()) throw std::runtime_error("Lista vazia");
-        return head->data;
-    }
-
-    Node* get_head() { 
+    Node* get_head() const { 
         return head;
     }
 
-    // PROÍBE CÓPIA
+    // Proíbe cópia para evitar problemas de gerenciamento de memória
     List(const List&) = delete;
     List& operator=(const List&) = delete;
 
 private:
     Node* head;
+    Node* tail;
     int count;
-
-
 };
 
 #endif
